@@ -205,4 +205,3 @@ impl Render for Settings {
 
 - [组件总览](../component/index)
 - [资源与图标](./assets.md)
-
