@@ -48,10 +48,21 @@ fn diagnostic_highlight_style(
 
 const BOTTOM_MARGIN_ROWS: usize = 3;
 pub(super) const RIGHT_MARGIN: Pixels = px(10.);
-pub(super) const LINE_NUMBER_RIGHT_MARGIN: Pixels = px(10.);
+pub(super) const LINE_NUMBER_RIGHT_MARGIN: Pixels = px(6.);
 const FOLD_ICON_WIDTH: Pixels = px(14.);
 const FOLD_ICON_HITBOX_WIDTH: Pixels = px(18.);
 const MAX_HIGHLIGHT_LINE_LENGTH: usize = 10_000;
+const MIN_LINE_NUMBER_DIGITS: usize = 3;
+const MAX_LINE_NUMBER_DIGITS: usize = 7;
+const MAX_DISPLAYED_LINE_NUMBER: usize = 9_999_999;
+
+fn line_number_len(total_lines: usize) -> usize {
+    (total_lines.max(1).ilog10() as usize + 1).clamp(MIN_LINE_NUMBER_DIGITS, MAX_LINE_NUMBER_DIGITS)
+}
+
+fn displayed_line_number(number: usize) -> usize {
+    number.min(MAX_DISPLAYED_LINE_NUMBER)
+}
 const FOLD_CHEVRON_RIGHT_SVG: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>"#;
 const FOLD_CHEVRON_DOWN_SVG: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>"#;
 
@@ -1046,9 +1057,9 @@ impl<M: InputModeKind> TextElement<M> {
         window: &mut Window,
     ) -> (Pixels, usize) {
         let total_lines = text.lines_len();
-        // One extra column beyond the widest line number, so right-aligned
-        // numbers keep a gap from the left edge.
-        let line_number_len = total_lines.max(1).ilog10() as usize + 2;
+        // Reserve three digits for small documents, then follow the actual
+        // line count up to seven digits.
+        let line_number_len = line_number_len(total_lines);
 
         let mut line_number_width = if state.mode.line_number() {
             let empty_line_number = window.text_system().shape_line(
@@ -2741,8 +2752,12 @@ impl<M: InputModeKind> Element for TextElement<M> {
                 .iter()
                 .zip(last_layout.visible_buffer_lines.iter())
             {
-                let line_no: SharedString =
-                    format!("{:>width$}", buffer_line + 1, width = line_number_len).into();
+                let line_no: SharedString = format!(
+                    "{:>width$}",
+                    displayed_line_number(buffer_line + 1),
+                    width = line_number_len
+                )
+                .into();
 
                 let runs = if current_row == Some(buffer_line) {
                     &current_line_runs
@@ -3406,6 +3421,25 @@ mod tests {
         VisualTestContext, div,
     };
 
+    #[test]
+    fn line_number_column_stays_at_three_digits_then_grows_up_to_seven() {
+        assert_eq!(line_number_len(1), 3);
+        assert_eq!(line_number_len(9), 3);
+        assert_eq!(line_number_len(10), 3);
+        assert_eq!(line_number_len(999), 3);
+        assert_eq!(line_number_len(1_000), 4);
+        assert_eq!(line_number_len(999_999), 6);
+        assert_eq!(line_number_len(9_999_999), 7);
+        assert_eq!(line_number_len(10_000_000), 7);
+    }
+
+    #[test]
+    fn displayed_line_number_stays_within_seven_digits() {
+        assert_eq!(displayed_line_number(42), 42);
+        assert_eq!(displayed_line_number(9_999_999), 9_999_999);
+        assert_eq!(displayed_line_number(10_000_000), 9_999_999);
+    }
+
     struct DecorationHarness(Entity<EditorState>);
 
     impl Render for DecorationHarness {
@@ -3432,6 +3466,51 @@ mod tests {
             DecorationHarness(state)
         });
         (editor.unwrap(), window)
+    }
+
+    #[gpui::test]
+    fn editor_line_number_gutter_resizes_with_document_lines(cx: &mut TestAppContext) {
+        let (editor, window) = decoration_editor(cx, &"x\n".repeat(8), false);
+        let mut cx = VisualTestContext::from_window(window.into(), cx);
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+            let narrow = editor
+                .read(cx)
+                .last_layout
+                .as_ref()
+                .unwrap()
+                .line_number_width;
+
+            let longer_text = "x\n".repeat(99);
+            editor.update(cx, |state, cx| {
+                state.set_value(longer_text.as_str(), window, cx)
+            });
+            window.draw(cx).clear(cx);
+            let middle = editor
+                .read(cx)
+                .last_layout
+                .as_ref()
+                .unwrap()
+                .line_number_width;
+            assert_eq!(middle, narrow, "one to three digits must share a width");
+
+            let longest_text = "x\n".repeat(999);
+            editor.update(cx, |state, cx| {
+                state.set_value(longest_text.as_str(), window, cx)
+            });
+            window.draw(cx).clear(cx);
+            let wide = editor
+                .read(cx)
+                .last_layout
+                .as_ref()
+                .unwrap()
+                .line_number_width;
+
+            assert!(
+                wide > narrow,
+                "more line-number digits must widen the gutter"
+            );
+        });
     }
 
     #[gpui::test]
@@ -3875,9 +3954,9 @@ mod tests {
 
         assert_eq!(
             layout.bounds,
-            Bounds::new(point(px(47.), px(18.)), size(px(266.), px(87.)))
+            Bounds::new(point(px(51.), px(18.)), size(px(262.), px(87.)))
         );
-        assert_eq!(layout.scroll_size, size(px(976.), px(200.)));
+        assert_eq!(layout.scroll_size, size(px(972.), px(200.)));
 
         let layout_without_gutter =
             EditorScrollbarLayout::new(input_bounds, px(0.), size(px(500.), px(120.)), paddings);
