@@ -875,6 +875,7 @@ fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockN
                 .collect();
             BlockNode::List {
                 ordered: list.ordered,
+                start: list.start,
                 children,
                 span: new_span(list.position, cx),
             }
