@@ -4525,6 +4525,7 @@ dependencies = [
  "gpui-pre",
  "gpui-pre-platform",
  "gpui-pre-reqwest",
+ "image",
  "instant",
  "libc",
  "quickjs-jit",
@@ -4536,8 +4537,10 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "smallvec",
+ "smol",
  "tracing",
  "tungstenite",
+ "usvg 0.46.0",
  "wait-timeout",
  "windows 0.58.0",
 ]
