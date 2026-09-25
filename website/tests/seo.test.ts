@@ -8,6 +8,9 @@ const read = (path) => readFileSync(new URL(path, dist), 'utf8');
 
 function htmlFiles(directory) {
   return readdirSync(directory).flatMap((name) => {
+    // The versioned build writes under dist/versions; it is a separate site
+    // with repeated page titles, not part of the root site's SEO inventory.
+    if (directory === dist.pathname && name === 'versions') return [];
     const path = join(directory, name);
     return statSync(path).isDirectory() ? htmlFiles(path) : path.endsWith('.html') ? [path] : [];
   });
@@ -65,6 +68,26 @@ test('every indexable HTML page has exactly one H1', () => {
     if (/<meta[^>]+http-equiv="refresh"/i.test(readFileSync(file, 'utf8'))) continue;
     const count = (readFileSync(file, 'utf8').match(/<h1[\s>]/g) ?? []).length;
     assert.equal(count, 1, `${file} has ${count} H1 elements`);
+  }
+});
+
+test('core guide links resolve to existing pages and headings', () => {
+  for (const file of htmlFiles(dist.pathname)) {
+    const relative = file.slice(dist.pathname.length);
+    if (!/^(?:zh-CN\/)?docs\/[^/]+\/index\.html$/.test(relative)) continue;
+    if (!existsSync(join(dist.pathname, '..', relative.replace(/\/index\.html$/, '.md')))) continue;
+    const article = readFileSync(file, 'utf8').match(/<article class="doc-content"[^>]*>([\s\S]*?)<\/article>/)?.[1];
+    assert.ok(article, `${relative} has documentation content`);
+    for (const [, href] of article.matchAll(/<a\b[^>]*\bhref="([^"]+)"/g)) {
+      const url = new URL(href, 'https://gpui-kit.com');
+      if (url.origin !== 'https://gpui-kit.com' || !/^\/(?:zh-CN\/)?docs\//.test(url.pathname)) continue;
+      const page = join(dist.pathname, decodeURIComponent(url.pathname), 'index.html');
+      assert.ok(existsSync(page), `${relative} links to missing page ${href}`);
+      if (url.hash) {
+        const id = decodeURIComponent(url.hash.slice(1));
+        assert.ok(readFileSync(page, 'utf8').includes(`id="${id}"`), `${relative} links to missing heading ${href}`);
+      }
+    }
   }
 });
 

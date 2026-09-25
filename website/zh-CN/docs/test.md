@@ -1,7 +1,7 @@
 ---
-title: 测试
+title: Testing
 description: 通过 Rust 单元测试、TestAppContext、真实 UI 交互和布局断言测试 GPUI Kit 应用与 GPUI 行为。
-order: -11
+order: -3.39
 example: false
 ---
 
@@ -10,8 +10,8 @@ example: false
 本指南统一介绍 GPUI Kit 应用和 GPUI 的测试方式。根据要验证的行为选择测试层级：
 
 - 纯数据转换、校验和状态转换使用普通 Rust `#[test]`。
-- Entity、action、订阅和异步任务使用 `#[gpui_kit::test]` 与 `TestAppContext`，按需创建窗口。
-- UI 集成测试渲染真实应用视图，通过 `gpui_kit::test` 派发事件，再检查控件状态、布局和业务结果。
+- [Entity](./entity)、[Action](./action)、[订阅](./event)和异步 [Task](./task) 使用 `#[gpui_kit::test]` 与 `TestAppContext`，按需创建窗口。
+- UI 集成测试渲染真实应用视图，通过 `gpui_kit::test` 派发[事件](./event)，再检查控件状态、布局和业务结果。
 - 像素检查使用独立的离屏渲染器；原生窗口和平台集成保留相应测试。
 
 类型和 `#[gpui_kit::test]` 均由 Kit 根模块提供，应用无需再添加 GPUI 依赖。测试模块应显式导入用到的类型：`use gpui_kit::*;` 也会引入 GPUI 的 `test` 宏，可能遮蔽 Rust 原生的 `#[test]`。下方完整示例使用显式导入。
@@ -31,7 +31,7 @@ use gpui_kit::test::TestWindowExt;
 ```
 
 当行为涉及组件之间的协作，例如输入内容、保存对话框、检查父视图中的结果，
-就适合使用 UI 集成测试。测试通过 `ElementId` 定位控件，派发真实 GPUI 事件，
+就适合使用 UI 集成测试。测试通过 [`ElementId`](./element_id) 定位控件，派发真实 GPUI 事件，
 再用普通 Rust 断言检查结果。
 
 本指南介绍进程内的行为与布局自动化。元素快照不会检查像素，也不会启动打包后的应用。像素验证使用下文单独介绍的 GPUI 离屏渲染器。如果需要验证原生窗口、平台集成或视觉效果，应另外保留相应测试。
