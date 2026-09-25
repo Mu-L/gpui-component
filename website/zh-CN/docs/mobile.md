@@ -2,15 +2,22 @@
 title: Mobile
 description: 使用实验性的 gpui-pre-mobile 平台构建 iOS 应用，或将 GPUI Kit 嵌入 Swift UIKit 容器。
 order: -10
+maturity: [experimental, platform-dependent]
 ---
 
 # 移动端
+
+:::info 当前定位
+GPUI Kit 的首要目标仍然是桌面环境。引入移动端支持，是为了让部分组件能够在 iOS 与 Android 应用中复用，例如在原生界面里用 TextView 原生渲染富文本内容。GPUI Kit 目前没有计划像 Flutter 那样把移动端作为主要目标，也不打算成为完整的移动应用框架。
+:::
 
 移动端支持基于 [gpui-mobile](https://github.com/itsbalamurali/gpui-mobile)，由 [itsbalamurali](https://github.com/itsbalamurali) 创建并与社区共同开发。原始移动平台的成果归功于该项目的作者和贡献者。移动平台负责 [Window](./window)、触摸输入、[TextSystem](./text-system) 和 GPU 渲染表面，GPUI 与 GPUI Kit 继续管理 Rust 视图树和组件。
 
 GPUI Kit 目前使用 `gpui-pre-mobile`，这是在[兼容性 fork](https://github.com/longbridge/gpui-mobile) 中维护的临时兼容包。它基于原项目进行打包适配，用于配合 `gpui-pre` 发布 crate，并持续跟进最新的 GPUI 版本、保持集成兼容。待社区 `gpui-mobile` 完成接入、GPUI 也发布 crate 后，我们计划将本文及相关依赖更新为社区的 `gpui-mobile`。
 
-目前该集成仍处于实验阶段。Swift 托管的 iOS 示例已在 iOS 模拟器中构建并运行。兼容性 fork 还提供 Android Activity 示例与构建脚本，但它使用不同的宿主路径；GPUI Kit 集成尚未在 Android 或实体 iPhone 上验证。下文的 iOS 模拟器路径是已演示的目标，不能据此推断移动平台均已获得支持。
+目前该集成仍处于实验阶段。Swift 托管的 iOS 示例已在 iOS 模拟器中构建并运行。在本文之外，GPUI Kit 已在 iOS 与 Android 上完成了有限范围的验证：一个 AI Chat 区域在两个平台上都通过了功能与性能测试，其中使用了 TextView、Button、Menu、Popover、Scrollbar、Input、Textarea 与文本选择，相关修复已合入 GPUI Kit。该场景完整覆盖了 TextView；其他组件与完整应用布局尚未在移动端验证。兼容性 fork 中的 Android Activity 示例使用不同的宿主路径，本文不涉及。下文的 iOS 模拟器路径是本文说明的目标，不能据此推断移动平台均已获得支持。
+
+在 iOS 与 Android 上，原生 UI 与 GPUI 都可以共处同一个界面。用户期望具有平台原生行为的部分，例如 NavigationBar 和底部输入框，由原生 UI 实现；GPUI 作为其中的一个 View 渲染在两者之间。双方各自负责自己的布局与输入，宿主像摆放其他原生 View 一样摆放 GPUI View。
 
 ## 运行 iOS 示例
 
@@ -49,7 +56,7 @@ gpui = { package = "gpui-pre", version = "=0.3.4", default-features = false }
 gpui-kit = { git = "https://github.com/longbridge/gpui-kit", rev = "7d9efcd2069f9eaa6eb3ba6345aac4aa7d87c9f7", default-features = false, features = ["component"] }
 ```
 
-这些提交固定了示例的依赖基线。Kit 提交包含移动平台条件编译支持，但尚未包含移动端 tooltip 禁用逻辑。当前 GPUI Kit 工作树使用 `gpui-pre 0.3.6`，而固定的移动平台及渲染器使用 `0.3.4`。Cargo 可能同时选出两个版本，导致 GPUI 类型不兼容；**只把 Kit 依赖替换为本地路径并不能完成升级**。需要先将移动平台及渲染器更新到与 Kit 相同的 GPUI 版本，并验证这一组合，之后才可使用如下路径依赖：
+这些提交固定了示例的依赖基线。Kit 提交包含移动平台条件编译支持，但尚未包含移动端 tooltip 禁用逻辑。当前 GPUI Kit 工作树使用 `gpui-pre {{gpui_pre_version}}`，而固定的移动平台及渲染器使用 `0.3.4`。Cargo 可能同时选出两个版本，导致 GPUI 类型不兼容；**只把 Kit 依赖替换为本地路径并不能完成升级**。需要先将移动平台及渲染器更新到与 Kit 相同的 GPUI 版本，并验证这一组合，之后才可使用如下路径依赖：
 
 ```toml
 gpui-kit = { path = "../gpui-kit/crates/kit", default-features = false, features = ["component"] }
@@ -57,7 +64,7 @@ gpui-kit = { path = "../gpui-kit/crates/kit", default-features = false, features
 
 路径相对于应用的 Cargo 清单，请按实际目录调整。GPUI 核心、渲染器、平台和 Kit 必须使用相容的同一版本。
 
-与桌面端[快速开始](/zh-CN/docs/getting-started)不同，移动端不使用 `gpui_kit::application()` 或 `gpui_kit::platform`。这些桌面平台导出在 iOS 和 Android 上被排除。移动宿主负责初始化 GPUI、调用 `gpui_kit::init(cx)`，并在应用内容外挂载一个 `component::Root`。
+与桌面端[快速开始](./getting-started.md)不同，移动端不使用 `gpui_kit::application()` 或 `gpui_kit::platform`。这些桌面平台导出在 iOS 和 Android 上被排除。移动宿主负责初始化 GPUI、调用 `gpui_kit::init(cx)`，并在应用内容外挂载一个 `component::Root`。
 
 ## 嵌入 UIKit 视图
 
@@ -146,7 +153,7 @@ GPUI Base 在 iOS 和 Android 上禁用其 tooltip overlay。这只覆盖通过�
 
 在做出性能结论前，使用实体设备、Release 构建和 Xcode Instruments 测量。模拟器适合验证布局与交互，但它的结果不是设备帧耗时。
 
-Android 使用独立的 Activity 与渲染表面生命周期。仓库包含 Android 示例，但本文不代表 Android Kit 兼容性或嵌入原生 Android `View` 的能力已经得到验证。采用这些路径前需要单独评估。
+Android 使用独立的 Activity 与渲染表面生命周期。仓库包含 Android 示例。GPUI 可以作为 Android `View` 嵌入原生布局（见上文），但本文只说明 iOS 的接入步骤。除上文已验证的 Chat 场景外，Android 上的 Kit 兼容性尚未确立。采用 Android 宿主路径前需要单独评估。
 
 ## 排查问题
 
@@ -154,6 +161,6 @@ Android 使用独立的 Activity 与渲染表面生命周期。仓库包含 Andr
 | --- | --- |
 | Xcode 找不到模拟器目标，或应用在另一台模拟器上启动 | 固定版本的 `build.sh` 默认面向 iOS 18.6 的 iPhone 16 Pro 构建。安装该运行时，或对照 `xcodebuild -showdestinations` 修改脚本中的 Xcode destination。随后运行 `xcrun simctl list devices available`：`_ios_run_simulator` 会独立选择第一个可用的 iPhone 安装应用。若它不是构建目标，请把 `sim_id` 选择改为目标模拟器的 UUID。 |
 | 真机构建签名或安装失败 | 替换 `example/ios/project.yml` 中的示例开发团队，重新生成 Xcode 工程，并确认 Xcode 能识别设备。脚本默认面向真机；使用本文路径时要显式传入 `--simulator`。 |
-| Rust 出现两个 GPUI 版本，或 `App`、`Window` 类型不匹配 | 检查解析出的 `gpui-pre` 包。固定的移动 fork 使用 `0.3.4`，当前工作树使用 `0.3.6`；使用本地 Kit 路径前须统一整套移动平台与 Kit 依赖。 |
+| Rust 出现两个 GPUI 版本，或 `App`、`Window` 类型不匹配 | 检查解析出的 `gpui-pre` 包。固定的移动 fork 使用 `0.3.4`，当前工作树使用 `{{gpui_pre_version}}`；使用本地 Kit 路径前须统一整套移动平台与 Kit 依赖。 |
 | 应用启动后 GPUI 区域空白或画面停滞 | 检查 Rust 回调是否打开窗口、子控制器是否已加入容器、`layoutSubviews` 是否传递非零尺寸，以及界面可见时是否持续请求帧。查看 Xcode 控制台；示例将 Rust 日志与 panic 输出到 `NSLog`。 |
 | 文字、图标或图片缺失 | 核对字体及字形覆盖、已注册的 `AssetSource` 与图标键名，以及图片的打包路径或 HTTP 客户端。桌面端的字体与资源配置不会自动进入移动宿主。 |
